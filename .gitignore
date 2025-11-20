@@ -5,3 +5,4 @@
 !example.env
 !**/example.env
 **/user-configs/*.yaml
+!**/user-configs/.gitkeep
