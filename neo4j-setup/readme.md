@@ -33,7 +33,11 @@ We will use `kubectl` to interact with the kubernetes cluster.
         echo ".env file not found!"
     fi
     ```
-4. The instructor should at this point provide you with a kubeconfig files to connect to the kubernetes cluster. Save these files locally in the `user-configs` directory.
+4. Create secret for the initial Neo4j password (just for demo purposes, use a strong password in production and preferably use SSO):
+    ```bash
+    kubectl create secret generic neo4jpwd --from-literal=NEO4J_AUTH=$NEO4J_AUTH
+    kubectl get secret neo4jpwd -o yaml
+5. The instructor should at this point provide you with a kubeconfig files to connect to the kubernetes cluster. Save these files locally in the `user-configs` directory.
      ```
     neo4j-setup/
      └── user-configs
@@ -41,12 +45,12 @@ We will use `kubectl` to interact with the kubernetes cluster.
          ├── user-2-kubeconfig.yaml
          └── ...
     ```
-5. Set the `KUBECONFIG` environment variable to point to your kubeconfig file:
+6. Set the `KUBECONFIG` environment variable to point to your kubeconfig file:
     ```bash
     mkdir -p ~/.kube
     cp neo4j-setup/user-configs/user-$PARTICIPANT_NUMBER-kubeconfig.yaml ~/.kube/config
     ```
-6. Verify the connection to the cluster by checking the nodes:
+7. Verify the connection to the cluster by checking the nodes:
     ```bash
     kubectl get pods
     ```
@@ -68,9 +72,18 @@ To deploy Neo4j DBMS on Kubernetes you have to configure the Neo4j Helm chart re
 
 1. Create a load balancer service with persistent external IP for Neo4j:
     ```bash
-    kubectl apply -f ./templates/cluster-lb.yaml
+    kubectl apply -f neo4j-setup/templates/cluster-lb.yaml
     ```
 2. Verify that the service has been created and has an external IP assigned:
     ```bash
     kubectl get services
+    ```
+3. Create a 
+## Create the cluster
+
+1. Deploy the Neo4j core cluster using Helm:
+    ```bash
+    helm install server1 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
+    helm install server2 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
+    helm install server3 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
     ```
