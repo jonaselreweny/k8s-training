@@ -1,0 +1,5 @@
+*.license
+**/*.license
+*.env
+**/.env
+**/user-configs/*.yaml
