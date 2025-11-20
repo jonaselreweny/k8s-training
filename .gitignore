@@ -2,4 +2,6 @@
 **/*.license
 *.env
 **/.env
+!example.env
+!**/example.env
 **/user-configs/*.yaml
