@@ -12,6 +12,7 @@ You need to have an Azure account and the following tools installed on your loca
 
 3. Copy the `example.env` file to `.env`:
    ```bash
+   cd aks-setup
    cp example.env .env
    ```
    Modify the variables in the `.env` file as needed.
@@ -151,7 +152,7 @@ You need to have an Azure account and the following tools installed on your loca
     ```
 21. Generate kubeconfig files for each participant (24h duration):
     ```bash
-    mkdir -p user-configs
+    rm -f user-configs/user-*-kubeconfig.yaml
     
     CLUSTER_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
     CLUSTER_CA=$(kubectl config view --raw --minify --flatten -o jsonpath='{.clusters[0].cluster.certificate-authority-data}')

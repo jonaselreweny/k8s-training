@@ -2,7 +2,7 @@ neo4j:
   name: "neo4j-cluster"
   resources:
     cpu: "1.100"
-    memory: "5G"
+    memory: "4G"
 
   passwordFromSecret: "neo4jpwd"
   offlineMaintenanceModeEnabled: false
