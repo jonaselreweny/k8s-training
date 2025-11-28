@@ -4,3 +4,6 @@ This repository contains training materials for deploying and managing Neo4j on 
 ## Repository Structure
 - `aks-setup/`: Contains scripts and configurations for setting up an Azure Kubernetes Service (AKS) cluster.
 - `neo4j-setup/`: Contains Helm charts and deployment instructions for Neo4j on Kubernetes.
+
+## Participant Starter Instructions
+Open the `neo4j-setup/readme.md` file for detailed instructions on how to set up your environment, connect to the AKS cluster, and deploy Neo4j using Helm charts.

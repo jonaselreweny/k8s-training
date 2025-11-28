@@ -10,9 +10,6 @@ neo4j:
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
 
-image:
-  customImage: neo4j:2025.09.0
-
 services:
   neo4j:
     # Do not create the LB; Create LB in separate manifest

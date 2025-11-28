@@ -3,7 +3,7 @@ The following instructions will guide you through the steps to connect to a shar
 
 ## Prerequisites
 
-We will use `kubectl` to interact with the kubernetes cluster.
+We will use `kubectl` to interact with the kubernetes cluster and VS Code with the Neo4j extension to interact with the Neo4j database.
 
 1. Install kubectl
    - Follow the [instructions](https://kubernetes.io/docs/tasks/tools/install-kubectl/) to install kubectl. For example, on Debian-based distributions, you can use:
@@ -11,6 +11,11 @@ We will use `kubectl` to interact with the kubernetes cluster.
    sudo apt-get update
    sudo apt-get install -y kubectl
    ```
+2. Install the Neo4j for VS Code extension:
+   - Open VS Code and go to the Extensions view by clicking on the Extensions icon in the Activity Bar on the side of the window or by pressing `Ctrl+Shift+X`.
+   - Search for `Neo4j` in the Extensions view search bar.
+   - Find the `Neo4j for VS Code` extension by Neo4j and click the `Install` button.
+   - After installation, you may need to reload VS Code to activate the extension.
 
 ## Connect to the AKS Cluster and Set Default Context
 1. Make a copy of the `example.env` file and name it `.env`:
@@ -82,16 +87,79 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```bash
     kubectl get services
     ```
+    **Note**: It may take a few moments for the external IP to be assigned. If the `EXTERNAL-IP` column shows `<pending>`, wait a bit and run the command again. Make note of the external IP address assigned to the `neo4j-loadbalancer` service. That IP address will be used to access Neo4j later.
+
 ## Create the cluster
 
 1. Deploy the Neo4j core cluster using Helm:
     ```bash
-    helm install server1 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
-    helm install server2 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
-    helm install server3 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
+    helm install server1 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.9.0
+    helm install server2 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.9.0
+    helm install server3 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.9.0
     ```
 2. Verify that the pods are running:
     ```bash
     kubectl get pods
     ```
-3. Access the Neo4j Browser using the external IP of the load balancer service:
+    **Note**: It may take a few moments for the pods to be in the `Running` state. If any pod shows `ContainerCreating` or `Pending`, wait a bit and run the command again.
+3. Access the Neo4j logs on the pods to verify that Neo4j has started:
+    ```bash
+    kubectl exec server1-0 -- tail /logs/neo4j.log
+    ```
+    **Note**: You can replace `server1-0` with the name of any of the other Neo4j pods to check their logs as well.
+4. Check that the services are running:
+    ```bash
+    kubectl get services
+    ```
+    Should look something like this:
+    ```
+    NAME                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                                          AGE
+    cluster-lb          LoadBalancer   10.0.9.206     51.105.128.238   7687:32434/TCP,7474:30593/TCP                                    12m
+    server1             ClusterIP      10.0.227.138   <none>           7687/TCP,7474/TCP                                                9m36s
+    server1-admin       ClusterIP      10.0.160.71    <none>           6362/TCP,7687/TCP,7474/TCP                                       9m36s
+    server1-internals   ClusterIP      10.0.97.189    <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m36s
+    server2             ClusterIP      10.0.122.228   <none>           7687/TCP,7474/TCP                                                9m35s
+    server2-admin       ClusterIP      10.0.238.177   <none>           6362/TCP,7687/TCP,7474/TCP                                       9m35s
+    server2-internals   ClusterIP      10.0.195.30    <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m35s
+    server3             ClusterIP      10.0.149.125   <none>           7687/TCP,7474/TCP                                                9m34s
+    server3-admin       ClusterIP      10.0.227.22    <none>           6362/TCP,7687/TCP,7474/TCP                                       9m34s
+    server3-internals   ClusterIP      10.0.147.8     <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m34s
+    ```
+5. Access Neo4j using cypher-shell (replace `<password>` with the password you set in the NEO4J_AUTH environment variable):
+    ```bash
+    kubectl exec -it server1-0 -- bin/cypher-shell -u neo4j -p <password>
+    ```
+    You should see the cypher prompt:
+    ```
+    neo4j@neo4j>
+    ```
+    You can now run cypher commands against your Neo4j cluster.
+6. List databases to verify everything is working:
+    ```cypher
+    SHOW DATABASES;
+    ```
+    You should see output similar to this:
+    ```
+    +------------------------------------------------- 
+    | name     | type       | aliases | access       | ...
+    +------------------------------------------------- 
+    | "neo4j"  | "standard" | []      | "read-write" | ...
+    | "neo4j"  | "standard" | []      | "read-write" | ...
+    | "neo4j"  | "standard" | []      | "read-write" | ...
+    | "system" | "system"   | []      | "read-write" | ...
+    | "system" | "system"   | []      | "read-write" | ...
+    | "system" | "system"   | []      | "read-write" | ...
+    +------------------------------------------------+
+    ```
+7. Create a database with the topology of having 3 primaries:
+    ```cypher
+    CREATE DATABASE mydb IF NOT EXISTS TOPOLOGY 3 PRIMARIES;
+    ```
+8. Verify the new database has been created:
+    ```cypher
+    SHOW DATABASES;
+    ```
+9. Exit cypher-shell by running:
+    ```cypher
+    :exit
+    ```
