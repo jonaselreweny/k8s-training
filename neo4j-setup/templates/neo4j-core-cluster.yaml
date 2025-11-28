@@ -6,10 +6,12 @@ neo4j:
 
   passwordFromSecret: "neo4jpwd"
   offlineMaintenanceModeEnabled: false
-  # Uncomment to use enterprise edition
   edition: "enterprise"
   acceptLicenseAgreement: "yes"
   minimumClusterSize: "3"
+
+image:
+  customImage: neo4j:2025.09.0
 
 services:
   neo4j:

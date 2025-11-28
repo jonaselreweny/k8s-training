@@ -71,7 +71,8 @@ To deploy Neo4j DBMS on Kubernetes you have to configure the Neo4j Helm chart re
     helm search repo neo4j
     ```
 
-## Steps to Deploy Neo4j with Load Balancer
+## Steps to Deploy Load Balancer with Persistent External IP
+To avoid changing IP addresses after the load balancer pod restarts, we will create a load balancer service with a persistent external IP for Neo4j.
 
 1. Create a load balancer service with persistent external IP for Neo4j:
     ```bash
@@ -81,7 +82,6 @@ To deploy Neo4j DBMS on Kubernetes you have to configure the Neo4j Helm chart re
     ```bash
     kubectl get services
     ```
-3. Create a 
 ## Create the cluster
 
 1. Deploy the Neo4j core cluster using Helm:
@@ -90,3 +90,8 @@ To deploy Neo4j DBMS on Kubernetes you have to configure the Neo4j Helm chart re
     helm install server2 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
     helm install server3 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml
     ```
+2. Verify that the pods are running:
+    ```bash
+    kubectl get pods
+    ```
+3. Access the Neo4j Browser using the external IP of the load balancer service:
