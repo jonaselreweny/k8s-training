@@ -89,7 +89,7 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```
     **Note**: It may take a few moments for the external IP to be assigned. If the `EXTERNAL-IP` column shows `<pending>`, wait a bit and run the command again. Make note of the external IP address assigned to the `neo4j-loadbalancer` service. That IP address will be used to access Neo4j later.
 
-## Create the cluster
+## Create the Cluster
 
 1. Deploy the Neo4j core cluster using Helm:
     ```bash
@@ -113,17 +113,17 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```
     Should look something like this:
     ```
-    NAME                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                                                          AGE
-    cluster-lb          LoadBalancer   10.0.9.206     51.105.128.238   7687:32434/TCP,7474:30593/TCP                                    12m
-    server1             ClusterIP      10.0.227.138   <none>           7687/TCP,7474/TCP                                                9m36s
-    server1-admin       ClusterIP      10.0.160.71    <none>           6362/TCP,7687/TCP,7474/TCP                                       9m36s
-    server1-internals   ClusterIP      10.0.97.189    <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m36s
-    server2             ClusterIP      10.0.122.228   <none>           7687/TCP,7474/TCP                                                9m35s
-    server2-admin       ClusterIP      10.0.238.177   <none>           6362/TCP,7687/TCP,7474/TCP                                       9m35s
-    server2-internals   ClusterIP      10.0.195.30    <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m35s
-    server3             ClusterIP      10.0.149.125   <none>           7687/TCP,7474/TCP                                                9m34s
-    server3-admin       ClusterIP      10.0.227.22    <none>           6362/TCP,7687/TCP,7474/TCP                                       9m34s
-    server3-internals   ClusterIP      10.0.147.8     <none>           6362/TCP,7687/TCP,7474/TCP,7688/TCP,5000/TCP,7000/TCP,6000/TCP   9m34s
+    NAME                TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)
+    cluster-lb          LoadBalancer   10.0.9.206     51.105.128.238   7687 ...
+    server1             ClusterIP      10.0.227.138   <none>           7687 ...
+    server1-admin       ClusterIP      10.0.160.71    <none>           6362 ...
+    server1-internals   ClusterIP      10.0.97.189    <none>           6362 ...
+    server2             ClusterIP      10.0.122.228   <none>           7687 ...
+    server2-admin       ClusterIP      10.0.238.177   <none>           6362 ...
+    server2-internals   ClusterIP      10.0.195.30    <none>           6362 ...
+    server3             ClusterIP      10.0.149.125   <none>           7687 ...
+    server3-admin       ClusterIP      10.0.227.22    <none>           6362 ...
+    server3-internals   ClusterIP      10.0.147.8     <none>           6362 ...
     ```
 5. Access Neo4j using cypher-shell (replace `<password>` with the password you set in the NEO4J_AUTH environment variable):
     ```bash
@@ -163,3 +163,24 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```cypher
     :exit
     ```
+## Access Neo4j from VS Code
+1. Open the Neo4j extension in VS Code.
+2. Click on the `Add Connection` button.
+3. Fill in the connection details:
+   - **Name**: A name for your connection (e.g., `Neo4j Cluster`).
+   - **URI**: `neo4j://<EXTERNAL-IP>:7687` (replace `<EXTERNAL-IP>` with the external IP address of the load balancer service you noted earlier).
+   - **Username**: `neo4j`
+   - **Password**: The password you set in the NEO4J_AUTH environment variable.
+4. Click `Connect` to establish the connection.
+5. You should now be connected to your Neo4j cluster and can run queries directly from VS Code.
+6. Select the `mydb` database from the database dropdown in the Neo4j extension to run queries against it.
+7. Open the `movies.cypher` file from the `neo4j-setup/cypher/` directory and run the script to load sample data into the `mydb` database.
+8. **Optional**: Create a new Cypher file in VS Code and run some sample queries against the `mydb` database, for example:
+   ```cypher
+   MATCH path = (:Person)-[:ACTED_IN*1..3]-(:Movie)
+   RETURN path
+   LIMIT 10;
+   ```
+## Backup and Restore in a Cluster
+Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/operations-manual/current/kubernetes/operations/backup-restore/) for detailed instructions on how to perform backups and restores in a Neo4j cluster deployed on Kubernetes. There are several methods available and the choice depends on your specific requirements and setup. The step-by-step guide below is one of the methods available.
+1. section to be completed later

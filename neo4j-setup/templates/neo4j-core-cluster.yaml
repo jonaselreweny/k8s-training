@@ -47,7 +47,7 @@ volumes:
     dynamic:
       storageClassName: "neo4j-ssd"
       requests:
-        storage: 100Gi
+        storage: 10Gi
 # Optional - Create a second disk for the transactions which will increase IOPS and Throughput
   transactions:
     mode: "dynamic"
@@ -56,7 +56,7 @@ volumes:
       accessModes:
         - ReadWriteOnce
       requests:
-        storage: 50Gi
+        storage: 5Gi
   # optional - create mount for import 
   # mount for license secrets
   licenses:

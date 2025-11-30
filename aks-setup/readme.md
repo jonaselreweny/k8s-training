@@ -90,41 +90,56 @@ You need to have an Azure account and the following tools installed on your loca
     ```bash
     kubectl get nodes
     ```
-11. Create a new storage class for Neo4j with fast persistent (retain) storage:
+11. Create new storage classes for Neo4j with fast persistent (retain) storage for the dbs and standard file storage for backups:
     ```bash
-    kubectl apply -f ./templates/azurepremiumxfs.yaml
+    kubectl apply -f ./templates/data-tlog-azuredisk-storage.yaml
+    kubectl apply -f ./templates/backup-azurefile-storage.yaml
     ```
-12. Verify that the neo4j-ssd storage class is created:
+12. Verify that the neo4j-ssd and neo4j-backup storage classes were created:
     ```bash
     kubectl get storageclass
     ```
-13. Create secret for the initial Neo4j password (just for demo purposes, use a strong password in production and preferably use SSO):
-    ```bash
-    kubectl create secret generic neo4jpwd --from-literal=NEO4J_AUTH=$NEO4J_AUTH
-    kubectl get secret neo4jpwd -o yaml
-    ```
-14. Place your Bloom and GDS license files in the `licenses` directory:
+13. Place your Bloom and GDS license files in the `licenses` directory:
     ```
     licenses/
     ├── bloom.license
     └── gds.license
     ```
-15. Create and verify a license secret for Bloom and GDS licenses:
+14. Create and verify a license secret for Bloom and GDS licenses:
     ```bash
     kubectl create secret  generic --from-file=./licenses/bloom.license --from-file=./licenses/gds.license gds-bloom-license
     kubectl get secret  gds-bloom-license -o yaml
     ```
-16. Create namespaces and service accounts for workshop participants:
+15. Create namespaces and service accounts for workshop participants:
     ```bash
     for i in {1..$PARTICIPANT_COUNT}; do 
         kubectl create namespace neo4j-$i
         kubectl create serviceaccount neo4j-user-$i -n neo4j-$i
     done
     ```
-17. Verify the namespaces and service accounts are created:
+16. Verify the namespaces and service accounts are created:
     ```bash
     kubectl get namespaces
     for i in {1..$PARTICIPANT_COUNT}; do kubectl get serviceaccount -n neo4j-$i; done
+    ```
+17. Create backup persistent volume claims (PVCs) for each participant:
+    ```bash
+    for i in {1..$PARTICIPANT_COUNT}; do
+      cat <<EOF | kubectl apply -f -
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: backup-pvc
+      namespace: neo4j-$i
+    spec:
+      accessModes:
+        - ReadWriteMany
+      storageClassName: neo4j-backup
+      resources:
+        requests:
+          storage: 10Gi
+    EOF
+    done
     ```
 18. Create role bindings to grant permissions to service accounts:
     ```bash
