@@ -202,7 +202,11 @@ Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/ope
    ```
 ## Restore a Database from Backup
 Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/operations-manual/current/kubernetes/operations/backup-restore/) for detailed instructions on how to perform restores in a Neo4j cluster deployed on Kubernetes. The step-by-step guide below outlines the process to restore a database, in this case `mydb` from a backup created by the backup job.
-1. The backup pod stores the backup files in the PVC named `backup-pvc` under the `/backups` directory. The cluster pods are mounted to the same PVC but unfortunately the Neo4j Helm Chart adds a `/backups` subdirectory by default. Therefore, we need to copy the backup files to a subdirectory named `backups` within the `/backups` mount point in the cluster pods. This issue has been reported to the Neo4j team for resolution in future releases. For now, we can use a temporary pod to organize the backup files:
+1. The backup pod stores the backup files in the PVC named `backup-pvc` under the `/backups` directory.
+   - The cluster pods are mounted to the same PVC, but the Neo4j Helm Chart adds a `/backups` subdirectory by default.
+   - As a result, you need to copy the backup files to a subdirectory named `backups` within the `/backups` mount point in the cluster pods.
+   - This issue has been reported to the Neo4j team for resolution in future releases.
+   - For now, you can use a temporary pod to organize the backup files:
    ``` bash
    kubectl run backup-organizer --rm -it --restart=Never --image=busybox \
    --overrides='{"spec":{"containers":[{"name":"organizer","image":"busybox","command":["sh","-c","mkdir -p /backups/backups && cp /backups/mydb*.backup /backups/backups/ 2>/dev/null && echo Done && ls -la /backups/backups/"],"volumeMounts":[{"name":"backup-pvc","mountPath":"/backups"}]}],"volumes":[{"name":"backup-pvc","persistentVolumeClaim":{"claimName":"backup-pvc"}}]}}'
@@ -236,12 +240,47 @@ Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/ope
    ``` cypher
    SHOW DATABASES YIELD name, type, address, role, writer, currentStatus;
    ```
+   Switch to the `mydb` database
+   ``` cypher
+   :use mydb
+   ```
    and test some queries against the `mydb` database to ensure data integrity.
    ```cypher
-    MATCH (n) RETURN n LIMIT 10;
+   MATCH (n) RETURN n LIMIT 10;
    ```
 9. Exit cypher-shell and the pod bash shell:
    ``` bash
    :exit
    exit
-   ```  
+   ``` 
+
+## Upgrading Neo4j in Kubernetes
+The Neo4j Helm charts create a stateful set for each of the Neo4j instances in the cluster. The benefit of having a stateful set per Neo4j instance is the flexibility to configure and upgrade each instance independently. To upgrade Neo4j in Kubernetes, you can follow these steps:
+1. In the previous steps, we deployed three Neo4j instances named `server1`, `server2`, and `server3`. To show the current version of the Neo4j instances, you can use the following command in either cypher-shell or the Neo4j VS Code extension:
+   ```cypher
+   SHOW SERVERS YIELD address, version;
+   ```
+   This will display a list of all the servers and their respective versions.
+
+2. To upgrade each instance, you can use the `helm upgrade` command. For example, to upgrade `server1` to version `2025.10.1`, run:
+   ```bash
+   helm upgrade server1 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.10.1
+   ```
+2. Verify that the upgrade was successful by checking the status of the pods:
+   ```bash
+   kubectl get pods -l app=neo4j-cluster
+   ```
+   **Note**: It may take a few moments for the pods to be updated and in the `Running` state. If any pod shows `ContainerCreating` or `Pending`, wait a bit and run the command again. Once all pods are in the `Running` state, and the `READY` column shows `1/1`, you can proceed to the next step. In a production environment one would monitor the logs and status of the cluster closely during the upgrade process to ensure everything is functioning as expected.
+3. Repeat the upgrade process for `server2`:
+   ```bash
+   helm upgrade server2 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.10.1
+   ```
+   And lastly for `server3`:
+   ```bash
+   helm upgrade server3 neo4j/neo4j -f neo4j-setup/templates/neo4j-core-cluster.yaml --version 2025.10.1
+   ```
+4. After upgrading all instances, verify the new versions using cypher-shell or the Neo4j VS Code extension:
+   ```cypher
+   SHOW SERVERS YIELD address, version;
+   ```
+   You should see that all servers are now running the upgraded version `2025.10.1` and the upgrade process is complete without any downtime.
