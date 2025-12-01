@@ -28,6 +28,7 @@ config:
   dbms.security.procedures.unrestricted: "apoc.*,bloom.*,genai.*,gds.*"
   server.unmanaged_extension_classes: "com.neo4j.bloom.server=/bloom"
   dbms.security.http_auth_allowlist: "/,/browser.*,/bloom.*"
+  dbms.databases.seed_from_uri_providers: "FileSeedProvider"
   server.memory.heap.initial_size: "2G"
   server.memory.heap.max_size: "2G"
   server.memory.pagecache.size: "1500M"
@@ -70,3 +71,8 @@ volumes:
             path: bloom.license
           - key: gds.license
             path: gds.license
+  backups:
+    mode: "volume"
+    volume:
+      persistentVolumeClaim:
+        claimName: backup-pvc

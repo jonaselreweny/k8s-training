@@ -101,7 +101,7 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```bash
     kubectl get pods
     ```
-    **Note**: It may take a few moments for the pods to be in the `Running` state. If any pod shows `ContainerCreating` or `Pending`, wait a bit and run the command again.
+    **Note**: It may take a few moments for the pods to be in the `Running` state. If any pod shows `ContainerCreating` or `Pending`, wait a bit and run the command again. Once all pods are in the `Running` state, and the `READY` column shows `1/1`, you can proceed to the next step.
 3. Access the Neo4j logs on the pods to verify that Neo4j has started:
     ```bash
     kubectl exec server1-0 -- tail /logs/neo4j.log
@@ -136,20 +136,20 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     You can now run cypher commands against your Neo4j cluster.
 6. List databases to verify everything is working:
     ```cypher
-    SHOW DATABASES;
+    SHOW DATABASES YIELD name, type, address, role, writer, currentStatus;
     ```
     You should see output similar to this:
     ```
-    +------------------------------------------------- 
-    | name     | type       | aliases | access       | ...
-    +------------------------------------------------- 
-    | "neo4j"  | "standard" | []      | "read-write" | ...
-    | "neo4j"  | "standard" | []      | "read-write" | ...
-    | "neo4j"  | "standard" | []      | "read-write" | ...
-    | "system" | "system"   | []      | "read-write" | ...
-    | "system" | "system"   | []      | "read-write" | ...
-    | "system" | "system"   | []      | "read-write" | ...
-    +------------------------------------------------+
+    +-------------------------------------------------------------------------------------------------------+
+    | name     | type       | address                                  | role      | writer | currentStatus |
+    +-------------------------------------------------------------------------------------------------------+
+    | "neo4j"  | "standard" | "server1.neo4j-1.svc.cluster.local:7687" | "primary" | FALSE  | "online"      |
+    | "neo4j"  | "standard" | "server3.neo4j-1.svc.cluster.local:7687" | "primary" | TRUE   | "online"      |
+    | "neo4j"  | "standard" | "server2.neo4j-1.svc.cluster.local:7687" | "primary" | FALSE  | "online"      |
+    | "system" | "system"   | "server3.neo4j-1.svc.cluster.local:7687" | "primary" | FALSE  | "online"      |
+    | "system" | "system"   | "server2.neo4j-1.svc.cluster.local:7687" | "primary" | FALSE  | "online"      |
+    | "system" | "system"   | "server1.neo4j-1.svc.cluster.local:7687" | "primary" | TRUE   | "online"      |
+    +-------------------------------------------------------------------------------------------------------+
     ```
 7. Create a database with the topology of having 3 primaries:
     ```cypher
@@ -157,7 +157,7 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
     ```
 8. Verify the new database has been created:
     ```cypher
-    SHOW DATABASES;
+    SHOW DATABASES YIELD name, type, address, role, writer, currentStatus;
     ```
 9. Exit cypher-shell by running:
     ```cypher
@@ -181,6 +181,67 @@ To avoid changing IP addresses after the load balancer pod restarts, we will cre
    RETURN path
    LIMIT 10;
    ```
-## Backup and Restore in a Cluster
-Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/operations-manual/current/kubernetes/operations/backup-restore/) for detailed instructions on how to perform backups and restores in a Neo4j cluster deployed on Kubernetes. There are several methods available and the choice depends on your specific requirements and setup. The step-by-step guide below is one of the methods available.
-1. section to be completed later
+## Backup Databases in a Cluster
+Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/operations-manual/current/kubernetes/operations/backup-restore/) for detailed instructions on how to perform backups and restores in a Neo4j cluster deployed on Kubernetes. There are several methods available and the choice depends on your specific requirements and setup. The step-by-step guide below is one of the methods available. To facilitate the backup process smoothly in this training, we are using a storage class that supports ReadWriteMany access mode, allowing multiple pods to read and write to the same persistent volume simultaneously.
+1. Check out the backup job template in `neo4j-setup/templates/backup-job.yaml` to understand how the backup job is configured. The template is scheduled to run every minute for demonstration purposes; you may want to adjust the schedule according to your needs in a production environment (see [CronJob documentation](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/) for more details).
+2. Deploy the backup job using Helm:
+   ``` bash
+   helm install neo4j-backup neo4j/neo4j-admin -f ./neo4j-setup/templates/backup-job.yaml --set backup.databaseNamespace=neo4j-$PARTICIPANT_NUMBER
+   ```
+3. Verify that the backup job has been scheduled:
+   ``` bash
+   kubectl get cronjobs
+   ```
+4. Once the job runs, you can check the status of the backup jobs:
+   ``` bash
+   kubectl get jobs
+   ```
+5. Monitor the backup job logs to ensure backups are being created successfully, replacing `<backup-job-name>` with the actual name of the backup job:
+   ``` bash
+    kubectl logs job/<backup-job-name>
+   ```
+## Restore a Database from Backup
+Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/operations-manual/current/kubernetes/operations/backup-restore/) for detailed instructions on how to perform restores in a Neo4j cluster deployed on Kubernetes. The step-by-step guide below outlines the process to restore a database, in this case `mydb` from a backup created by the backup job.
+1. The backup pod stores the backup files in the PVC named `backup-pvc` under the `/backups` directory. The cluster pods are mounted to the same PVC but unfortunately the Neo4j Helm Chart adds a `/backups` subdirectory by default. Therefore, we need to copy the backup files to a subdirectory named `backups` within the `/backups` mount point in the cluster pods. This issue has been reported to the Neo4j team for resolution in future releases. For now, we can use a temporary pod to organize the backup files:
+   ``` bash
+   kubectl run backup-organizer --rm -it --restart=Never --image=busybox \
+   --overrides='{"spec":{"containers":[{"name":"organizer","image":"busybox","command":["sh","-c","mkdir -p /backups/backups && cp /backups/mydb*.backup /backups/backups/ 2>/dev/null && echo Done && ls -la /backups/backups/"],"volumeMounts":[{"name":"backup-pvc","mountPath":"/backups"}]}],"volumes":[{"name":"backup-pvc","persistentVolumeClaim":{"claimName":"backup-pvc"}}]}}'
+   ```
+2. Verify that the backup files have been copied to the correct location:
+   ``` bash
+   kubectl exec -it server1-0 -- ls -la /backups
+   ```
+3. Before restoring, ensure that the `mydb` database is dropped to avoid conflicts. Either use cypher-shell or the Neo4j VS Code extension to connect to the `system` database and run:
+   ``` cypher
+   DROP DATABASE mydb IF EXISTS;
+   ```
+4. Bash into one of the Neo4j pods to perform the restore operation:
+   ```bash
+   kubectl exec -it server1-0 -- bash
+   ```
+5. Restore the `mydb` database from the backup files:
+   ``` bash
+   neo4j-admin database restore mydb --from-path=/backups/ --expand-commands
+   ```
+6. Run cypher-shell to connect to the `system` database, replacing `<password>` with your Neo4j password:
+   ``` bash
+   cypher-shell -u neo4j -p <password> --database=system
+   ```
+7. Create the `mydb` database again using cypher-shell or the Neo4j VS Code extension:
+   ``` cypher
+   CREATE DATABASE mydb IF NOT EXISTS OPTIONS { existingData: 'use', seedUri: 'file:///backups/'};
+   ```
+   **Note**: The `seedUri` option points to the directory where the backup files are located within all the cluster pods.
+8. Verify that the `mydb` database has been restored successfully:
+   ``` cypher
+   SHOW DATABASES YIELD name, type, address, role, writer, currentStatus;
+   ```
+   and test some queries against the `mydb` database to ensure data integrity.
+   ```cypher
+    MATCH (n) RETURN n LIMIT 10;
+   ```
+9. Exit cypher-shell and the pod bash shell:
+   ``` bash
+   :exit
+   exit
+   ```  
