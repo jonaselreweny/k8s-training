@@ -240,6 +240,10 @@ Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/ope
    ``` cypher
    SHOW DATABASES YIELD name, type, address, role, writer, currentStatus;
    ```
+   Check the replication status of the `mydb` database:
+   ``` cypher
+   CALL dbms.cluster.statusCheck(['mydb']);
+   ```
    Switch to the `mydb` database
    ``` cypher
    :use mydb
