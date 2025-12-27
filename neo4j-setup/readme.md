@@ -227,6 +227,8 @@ Refer to the [Neo4j Backup and Restore documentation](https://neo4j.com/docs/ope
    ``` bash
    neo4j-admin database restore mydb --from-path=/backups/ --expand-commands
    ```
+   **Note**: To restore to a specific point in time you can use the `--restore-until="2025-12-28 13:50:45"` argument with the `neo4j-admin database restore` command. The argument must contain a UTC date and time.
+
 6. Run cypher-shell to connect to the `system` database, replacing `<password>` with your Neo4j password:
    ``` bash
    cypher-shell -u neo4j -p <password> --database=system
